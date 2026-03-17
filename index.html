@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aris AR - Classic Fixed</title>
+    <title>Aris AR - Cycle 2:1 Animation Based</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js"></script>
@@ -44,73 +44,70 @@
         </a-gltf-model>
       </a-entity>
 
-      <a-light type="ambient" intensity="0.8"></a-light>
-      <a-light type="directional" position="0 2 2" intensity="0.7"></a-light>
+      <a-light type="ambient" intensity="0.7"></a-light>
+      <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
     </a-scene>
 
     <script>
-      let isScanning = false;
-      let playCount = 0;
-      let lastVoiceTime = 0;
-      const COOLDOWN = 20000; // 20 giây
+      let isVisible = false;
+      let voiceInterval = null;
+      let normalLoopCount = 0;
+      let specialLoopCount = 0;
 
-      const targetEl = document.querySelector('#target');
       const mNormal = document.querySelector('#arisNormal');
       const mSpecial = document.querySelector('#arisSpecial');
+      const targetEl = document.querySelector('#target');
 
-      // Hàm phát âm thanh
-      function playRandomSound(type) {
-        let soundId;
-        if (type === 'cafe') {
-          soundId = `#snd-cafe-${Math.floor(Math.random() * 5) + 1}`;
-        } else {
-          soundId = `#snd-inter-${Math.floor(Math.random() * 3) + 1}`;
-        }
-        const s = document.querySelector(soundId);
-        if (s) {
-          s.pause();
-          s.currentTime = 0;
-          s.play().catch(() => {});
-        }
+      function playSound(type) {
+        if(!isVisible) return;
+        let id = type === 'cafe' 
+          ? `#snd-cafe-${Math.floor(Math.random() * 5) + 1}`
+          : `#snd-inter-${Math.floor(Math.random() * 3) + 1}`;
+        const s = document.querySelector(id);
+        if(s) { s.pause(); s.currentTime = 0; s.play().catch(()=>{}); }
       }
 
-      // Vòng lặp kiểm tra âm thanh mỗi giây
-      setInterval(() => {
-        if (!isScanning) return;
-        
-        const now = Date.now();
-        if (now - lastVoiceTime >= COOLDOWN) {
-          playRandomSound('cafe');
-          lastVoiceTime = now;
-        }
-      }, 1000);
-
+      // Tự động phát tiếng Cafe mỗi 20s khi đang nhìn thấy ảnh
       targetEl.addEventListener("targetFound", () => {
-        isScanning = true;
-        
-        // Logic đổi Model: 2 thường -> 1 đặc biệt
-        playCount++;
-        if (playCount % 3 === 0) {
-          // Hiện model 2, giấu model 1
-          mNormal.setAttribute('position', '0 -1000 0');
-          mSpecial.setAttribute('position', '0 0 0');
-          playRandomSound('inter');
-        } else {
-          // Hiện model 1, giấu model 2
-          mNormal.setAttribute('position', '0 0 0');
-          mSpecial.setAttribute('position', '0 -1000 0');
-        }
-        
-        // Luôn phát âm thanh cafe khi vừa thấy mặt target (lần đầu hoặc sau cooldown)
-        const now = Date.now();
-        if (now - lastVoiceTime >= COOLDOWN) {
-          playRandomSound('cafe');
-          lastVoiceTime = now;
+        isVisible = true;
+        if(!voiceInterval) {
+          voiceInterval = setInterval(() => playSound('cafe'), 20000);
         }
       });
 
       targetEl.addEventListener("targetLost", () => {
-        isScanning = false;
+        isVisible = false;
+        clearInterval(voiceInterval);
+        voiceInterval = null;
+      });
+
+      // LẮNG NGHE VÒNG LẶP ANIMATION CỦA MODEL 1
+      mNormal.addEventListener('animation-loop', () => {
+        if(!isVisible) return;
+        normalLoopCount++;
+        
+        if(normalLoopCount >= 2) { // Sau 2 lần chạy model thường
+          normalLoopCount = 0;
+          // Hoán đổi vị trí
+          mNormal.setAttribute('position', '0 -1000 0');
+          mSpecial.setAttribute('position', '0 0 0');
+          
+          // Phát âm thanh của model 2
+          playSound('inter');
+        }
+      });
+
+      // LẮNG NGHE VÒNG LẶP ANIMATION CỦA MODEL 2
+      mSpecial.addEventListener('animation-loop', () => {
+        if(!isVisible) return;
+        specialLoopCount++;
+
+        if(specialLoopCount >= 1) { // Sau 1 lần chạy model 2
+          specialLoopCount = 0;
+          // Hoán đổi lại
+          mSpecial.setAttribute('position', '0 -1000 0');
+          mNormal.setAttribute('position', '0 0 0');
+        }
       });
     </script>
   </body>
