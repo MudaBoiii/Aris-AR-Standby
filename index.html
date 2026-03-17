@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aris AR - 2:1 Cycle Edition</title>
+    <title>Aris AR - Classic Fixed</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js"></script>
@@ -33,105 +33,84 @@
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-gltf-model id="arisNormal" src="#modelNormal" visible="true"
-          position="0 0 0" rotation="90 0 0" scale="1 1 1"
+        <a-gltf-model id="arisNormal" src="#modelNormal" 
+          position="0 0 0" rotation="90 0 0" scale="0.4 0.4 0.4"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
 
-        <a-gltf-model id="arisSpecial" src="#modelSpecial" visible="false"
-          position="0 0 0" rotation="90 0 0" scale="1 1 1"
+        <a-gltf-model id="arisSpecial" src="#modelSpecial" 
+          position="0 -1000 0" rotation="90 0 0" scale="0.4 0.4 0.4"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
       </a-entity>
 
-      <a-light type="ambient" intensity="0.7"></a-light>
-      <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
+      <a-light type="ambient" intensity="0.8"></a-light>
+      <a-light type="directional" position="0 2 2" intensity="0.7"></a-light>
     </a-scene>
 
     <script>
-      let isVisible = false;
-      let voiceTimer = null;
-      let normalLoops = 0;
-      let specialLoops = 0;
+      let isScanning = false;
+      let playCount = 0;
+      let lastVoiceTime = 0;
+      const COOLDOWN = 20000; // 20 giây
 
       const targetEl = document.querySelector('#target');
       const mNormal = document.querySelector('#arisNormal');
       const mSpecial = document.querySelector('#arisSpecial');
 
-      // --- HÀM PHÁT ÂM THANH NGẪU NHIÊN ---
-      function playVoice(type) {
-        if (!isVisible) return; // Nếu đang mất dấu target thì không phát
-        
-        let sound;
+      // Hàm phát âm thanh
+      function playRandomSound(type) {
+        let soundId;
         if (type === 'cafe') {
-          const rand = Math.floor(Math.random() * 5) + 1;
-          sound = document.querySelector(`#snd-cafe-${rand}`);
-        } else if (type === 'inter') {
-          const rand = Math.floor(Math.random() * 3) + 1;
-          sound = document.querySelector(`#snd-inter-${rand}`);
+          soundId = `#snd-cafe-${Math.floor(Math.random() * 5) + 1}`;
+        } else {
+          soundId = `#snd-inter-${Math.floor(Math.random() * 3) + 1}`;
         }
-
-        if (sound) {
-          sound.pause();
-          sound.currentTime = 0;
-          sound.play().catch(e => console.log("Cần tương tác chạm màn hình trước khi có thể phát âm thanh."));
+        const s = document.querySelector(soundId);
+        if (s) {
+          s.pause();
+          s.currentTime = 0;
+          s.play().catch(() => {});
         }
       }
 
-      // --- SỰ KIỆN: KHI TÌM THẤY ẢNH ---
+      // Vòng lặp kiểm tra âm thanh mỗi giây
+      setInterval(() => {
+        if (!isScanning) return;
+        
+        const now = Date.now();
+        if (now - lastVoiceTime >= COOLDOWN) {
+          playRandomSound('cafe');
+          lastVoiceTime = now;
+        }
+      }, 1000);
+
       targetEl.addEventListener("targetFound", () => {
-        isVisible = true;
+        isScanning = true;
         
-        // Khởi động đồng hồ đếm 20s phát tiếng Cafe
-        clearInterval(voiceTimer);
-        voiceTimer = setInterval(() => {
-          playVoice('cafe');
-        }, 20000); 
+        // Logic đổi Model: 2 thường -> 1 đặc biệt
+        playCount++;
+        if (playCount % 3 === 0) {
+          // Hiện model 2, giấu model 1
+          mNormal.setAttribute('position', '0 -1000 0');
+          mSpecial.setAttribute('position', '0 0 0');
+          playRandomSound('inter');
+        } else {
+          // Hiện model 1, giấu model 2
+          mNormal.setAttribute('position', '0 0 0');
+          mSpecial.setAttribute('position', '0 -1000 0');
+        }
+        
+        // Luôn phát âm thanh cafe khi vừa thấy mặt target (lần đầu hoặc sau cooldown)
+        const now = Date.now();
+        if (now - lastVoiceTime >= COOLDOWN) {
+          playRandomSound('cafe');
+          lastVoiceTime = now;
+        }
       });
 
-      // --- SỰ KIỆN: KHI MẤT DẤU ẢNH ---
       targetEl.addEventListener("targetLost", () => {
-        isVisible = false;
-        clearInterval(voiceTimer); // Dừng phát âm thanh 20s
-      });
-
-      // --- SỰ KIỆN: KHI MODEL 1 CHẠY XONG 1 VÒNG ANIMATION ---
-      mNormal.addEventListener('animation-loop', () => {
-        if (!isVisible || mNormal.getAttribute('visible') === false) return;
-        
-        normalLoops++;
-        
-        // Chạy hết 2 vòng thì đổi sang Model 2
-        if (normalLoops >= 2) {
-          normalLoops = 0;
-          mNormal.setAttribute('visible', 'false');
-          mSpecial.setAttribute('visible', 'true');
-          
-          // Reset lại hoạt ảnh để Model 2 chạy mượt từ frame đầu tiên
-          mSpecial.removeAttribute('animation-mixer');
-          setTimeout(() => mSpecial.setAttribute('animation-mixer', 'clip: *; loop: repeat'), 10);
-          
-          // Phát âm thanh Inter
-          playVoice('inter');
-        }
-      });
-
-      // --- SỰ KIỆN: KHI MODEL 2 CHẠY XONG 1 VÒNG ANIMATION ---
-      mSpecial.addEventListener('animation-loop', () => {
-        if (!isVisible || mSpecial.getAttribute('visible') === false) return;
-        
-        specialLoops++;
-        
-        // Chạy hết 1 vòng thì đổi lại sang Model 1
-        if (specialLoops >= 1) {
-          specialLoops = 0;
-          mSpecial.setAttribute('visible', 'false');
-          mNormal.setAttribute('visible', 'true');
-          
-          // Reset lại hoạt ảnh cho Model 1
-          mNormal.removeAttribute('animation-mixer');
-          setTimeout(() => mNormal.setAttribute('animation-mixer', 'clip: *; loop: repeat'), 10);
-        }
+        isScanning = false;
       });
     </script>
   </body>
