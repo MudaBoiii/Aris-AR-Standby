@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aris AR - Special Cycle Edition</title>
+    <title>Aris AR - 2:1 Cycle Edition</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js"></script>
@@ -34,12 +34,12 @@
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-gltf-model id="arisNormal" src="#modelNormal" visible="true"
-          position="0 0 0" rotation="90 0 0" scale="0.4 0.4 0.4"
+          position="0 0 0" rotation="90 0 0" scale="1 1 1"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
 
         <a-gltf-model id="arisSpecial" src="#modelSpecial" visible="false"
-          position="0 0 0" rotation="90 0 0" scale="0.4 0.4 0.4"
+          position="0 0 0" rotation="90 0 0" scale="1 1 1"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
       </a-entity>
@@ -49,53 +49,90 @@
     </a-scene>
 
     <script>
-      let lastPlayTime = 0;
-      let playCount = 0; // Biến đếm số lần xuất hiện
-      const COOLDOWN = 20000; 
+      let isVisible = false;
+      let voiceTimer = null;
+      let normalLoops = 0;
+      let specialLoops = 0;
 
       const targetEl = document.querySelector('#target');
       const mNormal = document.querySelector('#arisNormal');
       const mSpecial = document.querySelector('#arisSpecial');
 
-      targetEl.addEventListener("targetFound", event => {
-        const currentTime = Date.now();
+      // --- HÀM PHÁT ÂM THANH NGẪU NHIÊN ---
+      function playVoice(type) {
+        if (!isVisible) return; // Nếu đang mất dấu target thì không phát
         
-        if (currentTime - lastPlayTime >= COOLDOWN) {
-          playCount++;
-          console.log("Lần xuất hiện thứ: " + playCount);
+        let sound;
+        if (type === 'cafe') {
+          const rand = Math.floor(Math.random() * 5) + 1;
+          sound = document.querySelector(`#snd-cafe-${rand}`);
+        } else if (type === 'inter') {
+          const rand = Math.floor(Math.random() * 3) + 1;
+          sound = document.querySelector(`#snd-inter-${rand}`);
+        }
 
-          if (playCount >= 5) {
-            // --- XUẤT HIỆN MODEL 2 (Lần thứ 5) ---
-            mNormal.setAttribute('visible', 'false');
-            mSpecial.setAttribute('visible', 'true');
-            
-            // Phát âm thanh Inter ngẫu nhiên
-            const randInter = Math.floor(Math.random() * 3) + 1;
-            const sound = document.querySelector(`#snd-inter-${randInter}`);
-            if (sound) playSound(sound);
+        if (sound) {
+          sound.pause();
+          sound.currentTime = 0;
+          sound.play().catch(e => console.log("Cần tương tác chạm màn hình trước khi có thể phát âm thanh."));
+        }
+      }
 
-            // Reset biến đếm về 0 để quay lại chu trình
-            playCount = 0;
-          } else {
-            // --- XUẤT HIỆN MODEL THƯỜNG ---
-            mNormal.setAttribute('visible', 'true');
-            mSpecial.setAttribute('visible', 'false');
+      // --- SỰ KIỆN: KHI TÌM THẤY ẢNH ---
+      targetEl.addEventListener("targetFound", () => {
+        isVisible = true;
+        
+        // Khởi động đồng hồ đếm 20s phát tiếng Cafe
+        clearInterval(voiceTimer);
+        voiceTimer = setInterval(() => {
+          playVoice('cafe');
+        }, 20000); 
+      });
 
-            // Phát âm thanh Cafe ngẫu nhiên
-            const randCafe = Math.floor(Math.random() * 5) + 1;
-            const sound = document.querySelector(`#snd-cafe-${randCafe}`);
-            if (sound) playSound(sound);
-          }
+      // --- SỰ KIỆN: KHI MẤT DẤU ẢNH ---
+      targetEl.addEventListener("targetLost", () => {
+        isVisible = false;
+        clearInterval(voiceTimer); // Dừng phát âm thanh 20s
+      });
 
-          lastPlayTime = currentTime;
+      // --- SỰ KIỆN: KHI MODEL 1 CHẠY XONG 1 VÒNG ANIMATION ---
+      mNormal.addEventListener('animation-loop', () => {
+        if (!isVisible || mNormal.getAttribute('visible') === false) return;
+        
+        normalLoops++;
+        
+        // Chạy hết 2 vòng thì đổi sang Model 2
+        if (normalLoops >= 2) {
+          normalLoops = 0;
+          mNormal.setAttribute('visible', 'false');
+          mSpecial.setAttribute('visible', 'true');
+          
+          // Reset lại hoạt ảnh để Model 2 chạy mượt từ frame đầu tiên
+          mSpecial.removeAttribute('animation-mixer');
+          setTimeout(() => mSpecial.setAttribute('animation-mixer', 'clip: *; loop: repeat'), 10);
+          
+          // Phát âm thanh Inter
+          playVoice('inter');
         }
       });
 
-      function playSound(el) {
-        el.pause();
-        el.currentTime = 0;
-        el.play().catch(e => console.log("Cần chạm màn hình để kích hoạt âm thanh"));
-      }
+      // --- SỰ KIỆN: KHI MODEL 2 CHẠY XONG 1 VÒNG ANIMATION ---
+      mSpecial.addEventListener('animation-loop', () => {
+        if (!isVisible || mSpecial.getAttribute('visible') === false) return;
+        
+        specialLoops++;
+        
+        // Chạy hết 1 vòng thì đổi lại sang Model 1
+        if (specialLoops >= 1) {
+          specialLoops = 0;
+          mSpecial.setAttribute('visible', 'false');
+          mNormal.setAttribute('visible', 'true');
+          
+          // Reset lại hoạt ảnh cho Model 1
+          mNormal.removeAttribute('animation-mixer');
+          setTimeout(() => mNormal.setAttribute('animation-mixer', 'clip: *; loop: repeat'), 10);
+        }
+      });
     </script>
   </body>
 </html>
