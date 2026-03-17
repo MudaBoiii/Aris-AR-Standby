@@ -2,8 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aris AR - Special Sequence</title>
-    
+    <title>Aris AR - Special Cycle Edition</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js"></script>
@@ -12,7 +11,6 @@
 
     <a-scene 
       mindar-image="imageTargetSrc: targets.mind; filterMinCF: 0.0005; filterBeta: 0.005; warmupTolerance: 7; missTolerance: 7;" 
-      color-space="sRGB" 
       renderer="colorManagement: true; antialias: true;" 
       vr-mode-ui="enabled: false" 
       device-orientation-permission-ui="enabled: false">
@@ -35,12 +33,13 @@
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-gltf-model 
-          id="aris-model"
-          src="#modelNormal" 
-          position="0 0 0" 
-          rotation="90 0 0" 
-          scale="1 1 1"
+        <a-gltf-model id="arisNormal" src="#modelNormal" visible="true"
+          position="0 0 0" rotation="90 0 0" scale="0.4 0.4 0.4"
+          animation-mixer="clip: *; loop: repeat">
+        </a-gltf-model>
+
+        <a-gltf-model id="arisSpecial" src="#modelSpecial" visible="false"
+          position="0 0 0" rotation="90 0 0" scale="0.4 0.4 0.4"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
       </a-entity>
@@ -51,11 +50,12 @@
 
     <script>
       let lastPlayTime = 0;
-      let playCount = 0; // Biến đếm số lần phát
-      const COOLDOWN = 20000; // 20 giây
-      
+      let playCount = 0; // Biến đếm số lần xuất hiện
+      const COOLDOWN = 20000; 
+
       const targetEl = document.querySelector('#target');
-      const modelEl = document.querySelector('#aris-model');
+      const mNormal = document.querySelector('#arisNormal');
+      const mSpecial = document.querySelector('#arisSpecial');
 
       targetEl.addEventListener("targetFound", event => {
         const currentTime = Date.now();
@@ -64,33 +64,38 @@
           playCount++;
           console.log("Lần xuất hiện thứ: " + playCount);
 
-          let soundToPlay;
-
-          if (playCount <= 5) {
-            // Chu kỳ 5 lần đầu: Dùng model thường + SFX Cafe
-            modelEl.setAttribute('src', '#modelNormal');
-            const randIndex = Math.floor(Math.random() * 5) + 1;
-            soundToPlay = document.querySelector(`#snd-cafe-${randIndex}`);
-          } 
-          else {
-            // Lần thứ 6: Đổi sang model 2 + SFX Inter
-            console.log("--- XUẤT HIỆN MODEL ĐẶC BIỆT ---");
-            modelEl.setAttribute('src', '#modelSpecial');
-            const randInter = Math.floor(Math.random() * 3) + 1;
-            soundToPlay = document.querySelector(`#snd-inter-${randInter}`);
+          if (playCount >= 5) {
+            // --- XUẤT HIỆN MODEL 2 (Lần thứ 5) ---
+            mNormal.setAttribute('visible', 'false');
+            mSpecial.setAttribute('visible', 'true');
             
-            // Reset biến đếm về 0 để quay lại chu kỳ cũ
+            // Phát âm thanh Inter ngẫu nhiên
+            const randInter = Math.floor(Math.random() * 3) + 1;
+            const sound = document.querySelector(`#snd-inter-${randInter}`);
+            if (sound) playSound(sound);
+
+            // Reset biến đếm về 0 để quay lại chu trình
             playCount = 0;
+          } else {
+            // --- XUẤT HIỆN MODEL THƯỜNG ---
+            mNormal.setAttribute('visible', 'true');
+            mSpecial.setAttribute('visible', 'false');
+
+            // Phát âm thanh Cafe ngẫu nhiên
+            const randCafe = Math.floor(Math.random() * 5) + 1;
+            const sound = document.querySelector(`#snd-cafe-${randCafe}`);
+            if (sound) playSound(sound);
           }
 
-          if (soundToPlay) {
-            soundToPlay.pause();
-            soundToPlay.currentTime = 0;
-            soundToPlay.play().catch(e => console.log("Cần chạm màn hình để phát âm thanh"));
-            lastPlayTime = currentTime;
-          }
+          lastPlayTime = currentTime;
         }
       });
+
+      function playSound(el) {
+        el.pause();
+        el.currentTime = 0;
+        el.play().catch(e => console.log("Cần chạm màn hình để kích hoạt âm thanh"));
+      }
     </script>
   </body>
 </html>
