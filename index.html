@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MindAR - Final Animation & Scale</title>
+    <title>MindAR - Aris Classic with Timer</title>
     
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -19,12 +19,17 @@
 
       <a-assets>
         <a-asset-item id="myModel" src="model.glb"></a-asset-item>
+        
+        <audio id="snd-cafe-1" src="SFX/Alice_Cafe_Act_1.ogg"></audio>
+        <audio id="snd-cafe-2" src="SFX/Alice_Cafe_Act_2.ogg"></audio>
+        <audio id="snd-cafe-3" src="SFX/Alice_Cafe_Act_3.ogg"></audio>
+        <audio id="snd-cafe-4" src="SFX/Alice_Cafe_Act_4.ogg"></audio>
+        <audio id="snd-cafe-5" src="SFX/Alice_Cafe_Act_5.ogg"></audio>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <a-entity mindar-image-target="targetIndex: 0">
-        
+      <a-entity id="target" mindar-image-target="targetIndex: 0">
         <a-gltf-model 
           src="#myModel" 
           position="0 0 0" 
@@ -32,13 +37,42 @@
           scale="1 1 1"
           animation-mixer="clip: *; loop: repeat">
         </a-gltf-model>
-
       </a-entity>
 
       <a-light type="ambient" intensity="1.2"></a-light>
       <a-light type="directional" position="0 2 2" intensity="1"></a-light>
 
     </a-scene>
+
+    <script>
+      let lastPlayTime = 0;
+      const COOLDOWN = 20000; // 20 giây (tính bằng miligiây)
+      const targetEl = document.querySelector('#target');
+
+      targetEl.addEventListener("targetFound", event => {
+        const currentTime = Date.now();
+        
+        // Kiểm tra xem đã qua thời gian chờ chưa
+        if (currentTime - lastPlayTime >= COOLDOWN) {
+          console.log("Đã đủ thời gian chờ. Phát âm thanh mới!");
+          
+          const randIndex = Math.floor(Math.random() * 5) + 1;
+          const sound = document.querySelector(`#snd-cafe-${randIndex}`);
+          
+          if (sound) {
+            sound.pause();
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("Chưa tương tác màn hình"));
+            
+            // Cập nhật lại thời gian phát cuối cùng
+            lastPlayTime = currentTime;
+          }
+        } else {
+          const waitTime = Math.ceil((COOLDOWN - (currentTime - lastPlayTime)) / 1000);
+          console.log(`Đang trong thời gian chờ. Thử lại sau ${waitTime}s nữa.`);
+        }
+      });
+    </script>
 
   </body>
 </html>
